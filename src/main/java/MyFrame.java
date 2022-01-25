@@ -16,38 +16,78 @@ public class MyFrame extends JFrame{
     public static final String[] databaseTables = {"rodzaj_taboru", "zajezdnia", "tabor", "naprawa", "kurs", "linie_autobusowe", "pracownik"};
     public static final int ADMINISTRATOR = 0;
     public static final int KIEROWCA = 1;
-    public static final int ZARZADCA = 2;
+    public static final int ZARZĄDCA = 2;
     private final int role;
     private final MyJTable table = new MyJTable();
     private MyDefaultTableModel data;
     private final Connection con;
-    private final JMenuBar menuBar = new JMenuBar();
-    private JMenu showTable = new JMenu();
-    private JMenu executeProcedure = new JMenu();
-    private JMenuItem insertSelect = new JMenuItem(), showTables = new JMenuItem();
-    private JPopupMenu jPopupMenu = new JPopupMenu();
-    private JMenuItem insertRow = new JMenuItem("Wstaw");
+    private final JPopupMenu jPopupMenu = new JPopupMenu();
 
 
+    /**
+     * Konstrukor klasy MyFrame
+     * @param connection połączenie z bazą danych
+     * @param role determinuje, jakie uprawnienia będzie miał
+     */
     MyFrame(Connection connection, int role){
         this.con = connection;
         this.role = role;
         setTitle("Lab4");
         setLayout(new BorderLayout());
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        JMenuItem showTables = new JMenuItem();
         showTables.setText("Tablice");
         showTables.addActionListener(event -> {
             TableSelector dialog = new TableSelector(this);
             dialog.pack();
             dialog.setVisible(true);
                 } );
+        JMenuItem insertSelect = new JMenuItem();
+        insertSelect.addActionListener(event -> {
+            JTextField query = new JTextField();
+            Object[] message = {
+                    "Kwerenda:", query,
+            };
+            JOptionPane.showConfirmDialog(this, message, "Wykonaj selecta", JOptionPane.OK_CANCEL_OPTION);
+            if(query.getText().startsWith("SELECT")) executeSelectQuery(query.getText(), null);
+            else executeManipulationQuery(query.getText());
+        });
         insertSelect.setText("Wykonaj selecta");
+        JMenu showTable = new JMenu();
         showTable.add(showTables);
         showTable.add(insertSelect);
         showTable.setText("Pokaż");
-        executeProcedure.setText("Wykonaj");
+        JMenuBar menuBar = new JMenuBar();
         menuBar.add(showTable);
-        menuBar.add(executeProcedure);
+
+        JMenuItem executeUsuńTabor = new JMenuItem("Usuń przestarzały tabor");
+        executeUsuńTabor.addActionListener(event -> executeManipulationQuery("CALL usuwanieAutomatyczne()"));
+        JMenu executeProcedure = new JMenu();
+        if(role == MyFrame.ADMINISTRATOR) executeProcedure.add(executeUsuńTabor);
+        JMenuItem executeDodajNaprawa = new JMenuItem("Zgloś naprawę");
+        executeDodajNaprawa.addActionListener(event -> {
+            JTextField date = new JTextField();
+            JTextField id_taboru = new JTextField();
+            Object[] message = {
+                    "Data:", date,
+                    "Id_taboru:", id_taboru
+            };
+            int option = JOptionPane.showConfirmDialog(this, message, "Dodaj naprawę", JOptionPane.OK_CANCEL_OPTION);
+            if(option == JOptionPane.OK_OPTION) executeManipulationQuery("CALL naprawa('" + date.getText() + "', " + id_taboru.getText() + ")");
+        });
+        executeProcedure.add(executeDodajNaprawa);
+        JMenuItem executeDodajKursy = new JMenuItem("Dodaj kursy");
+        executeDodajKursy.addActionListener(event ->{
+            JTextField date = new JTextField();
+            Object[] message = {
+                    "Data:", date,
+            };
+            int option = JOptionPane.showConfirmDialog(this, message, "Podaj datę", JOptionPane.OK_CANCEL_OPTION);
+            if(option == JOptionPane.OK_OPTION) executeManipulationQuery("CALL generowanieKursów('" + date.getText() + "')");
+        });
+        executeProcedure.add(executeDodajKursy);
+        executeProcedure.setText("Wykonaj");
+        if(role != MyFrame.KIEROWCA) menuBar.add(executeProcedure);
         setJMenuBar(menuBar);
 
         Action action = new AbstractAction("Usuń") {
@@ -65,6 +105,7 @@ public class MyFrame extends JFrame{
         };
         jPopupMenu.add(action);
 
+        JMenuItem insertRow = new JMenuItem("Wstaw");
         insertRow.addActionListener(e -> {
             String[] sender = Arrays.copyOfRange(data.getColumnNames(), 1, data.getColumnNames().length);
             TableAdder dialog = new TableAdder(sender, data.getTableName(), this);
@@ -93,6 +134,11 @@ public class MyFrame extends JFrame{
         }
     }
 
+    /**
+     * Metoda wykonuje zapytanie typu select, a następnie wywołuje metody {@link #updateTable(ResultSet, String)}
+     * @param query
+     * @param tableName
+     */
     public void executeSelectQuery(String query, String tableName){
         try {
             PreparedStatement ps = con.prepareStatement(query, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
@@ -104,8 +150,15 @@ public class MyFrame extends JFrame{
         }
     }
 
+    /**
+     *
+     * @param rs
+     * @param tableName
+     * @throws IllegalArgumentException
+     * @throws SQLException
+     */
     private void updateTable(ResultSet rs, String tableName) throws IllegalArgumentException, SQLException{
-        if(rs == null || tableName == null) throw new IllegalArgumentException("updateTable: Argument nie może być nullem");
+        if(rs == null) throw new IllegalArgumentException("updateTable: Argument nie może być nullem");
         String[] columns = getColumns(rs);
         String[][] resultTable = printQuery(rs);
         data = new MyDefaultTableModel(resultTable,columns, tableName);
@@ -121,6 +174,7 @@ public class MyFrame extends JFrame{
                 executeSelectQuery("SELECT * FROM " + data.getTableName(), data.getTableName());
             }
         });
+        if(tableName != null) setTitle("Lab4 - " + tableName);
         table.setModel(data);
         table.addNonEditableColumns(0);
     }
@@ -174,11 +228,11 @@ public class MyFrame extends JFrame{
         ArrayList<String> list = new ArrayList<>(Arrays.asList(manipulationPrivileges[role]));
         if(list.contains(tableName)){
             table.setComponentPopupMenu(jPopupMenu);
-            table.addNonEditableColumns(1);
+            table.addNonEditableColumns(0);
         }
         else{
             table.setComponentPopupMenu(null);
-            for(int i = 1; i <= table.getModel().getColumnCount(); i++){
+            for(int i = 0; i < table.getModel().getColumnCount(); i++){
                 table.addNonEditableColumns(i);
             }
         }
@@ -201,7 +255,7 @@ public class MyFrame extends JFrame{
  * edytowanie komórek
  */
 class MyJTable extends JTable{
-    private ArrayList<Integer> nonEditableColumns = new ArrayList<>();
+    private final ArrayList<Integer> nonEditableColumns = new ArrayList<>();
 
     @Override
     public boolean isCellEditable(int row, int column){
@@ -232,7 +286,7 @@ class MyJTable extends JTable{
  * Rozszenie klasy {@link DefaultTableModel}, przechowuje informacje o nazwie tablicy
  */
 class MyDefaultTableModel extends DefaultTableModel{
-    private String table;
+    private final String table;
 
     public String getTableName() {
         return table;

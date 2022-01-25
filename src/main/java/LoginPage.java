@@ -3,14 +3,23 @@ import java.awt.event.*;
 import java.sql.*;
 import java.util.Arrays;
 
+/**
+ * Klasa odpowiadająca za logowanie się do aplikacji bazodanowej
+ */
 public class LoginPage extends JDialog {
     private JPanel contentPane;
     private JButton buttonOK;
     private JButton buttonCancel;
     private JTextField textField1;
     private JPasswordField passwordField1;
+    private final String url;
 
-    public LoginPage() {
+    /**
+     * Konstruktor ekranu logowanie
+     * @param url adres url bazy danych, do której chcemy się podłączyć
+     */
+    public LoginPage(String url) {
+        this.url = url;
         setTitle("Login");
         setContentPane(contentPane);
         setModal(true);
@@ -37,7 +46,7 @@ public class LoginPage extends JDialog {
         char[] password = passwordField1.getPassword();
         try {
             DriverManager.registerDriver(new com.mysql.cj.jdbc.Driver());
-            Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/lab4", user, String.valueOf(password));
+            Connection connection = DriverManager.getConnection(url, user, String.valueOf(password));
             Arrays.fill(password, '0');
             PreparedStatement stmt = connection.prepareStatement("SELECT CURRENT_ROLE()");
             ResultSet rs = stmt.executeQuery();
@@ -49,7 +58,7 @@ public class LoginPage extends JDialog {
                     dispose();
                 }
                 case "`zarządca`@`%`" -> {
-                    new MyFrame(connection, MyFrame.ZARZADCA);
+                    new MyFrame(connection, MyFrame.ZARZĄDCA);
                     dispose();
                 }
                 case "`kierowca`@`%`", default -> {
@@ -68,7 +77,7 @@ public class LoginPage extends JDialog {
     }
 
     public static void main(String[] args) {
-        LoginPage dialog = new LoginPage();
+        LoginPage dialog = new LoginPage("jdbc:mysql://localhost:3306/lab4");
         dialog.pack();
         dialog.setVisible(true);
     }
