@@ -54,11 +54,4 @@ public class TableSelector extends JDialog {
         // add your code here if necessary
         dispose();
     }
-
-    public static void main(String[] args) {
-        TableSelector dialog = new TableSelector(null);
-        dialog.pack();
-        dialog.setVisible(true);
-        System.exit(0);
-    }
 }

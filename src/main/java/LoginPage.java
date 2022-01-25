@@ -75,10 +75,4 @@ public class LoginPage extends JDialog {
         // add your code here if necessary
         dispose();
     }
-
-    public static void main(String[] args) {
-        LoginPage dialog = new LoginPage("jdbc:mysql://localhost:3306/lab4");
-        dialog.pack();
-        dialog.setVisible(true);
-    }
 }
